@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/leaflet"
-import leaflet from "leaflet";
+import leaflet, { LatLng } from "leaflet";
 
 // Style sheets
 import "leaflet/dist/leaflet.css"; // supporting style for Leaflet
@@ -32,9 +32,9 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 );
 
 // Tunable gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 19;
+const GAMEPLAY_ZOOM_LEVEL = 18;
 const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 8;
+const NEIGHBORHOOD_SIZE = 50;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
 // Create the map (element with id "map" is defined in index.html)
@@ -63,12 +63,61 @@ playerMarker.addTo(map);
 
 // Display the player's points
 let playerPoints = 0;
-statusPanelDiv.innerHTML = "No points yet...";
+statusPanelDiv.innerHTML = "Holding Nothing...";
 
+//Adds support for WASD Controls
+globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
+  const oldMarkerLocation = playerMarker.getLatLng();
+  const oldMarkerLat = oldMarkerLocation.lat;
+  const oldMarkerLng = oldMarkerLocation.lng;
+  let newMarkerLocation: LatLng;
+  if (e.key === "w") {
+    newMarkerLocation = leaflet.latLng(
+      oldMarkerLat + 1 * TILE_DEGREES,
+      oldMarkerLng,
+    );
+    playerMarker.setLatLng(newMarkerLocation);
+  }
+  if (e.key === "a") {
+    newMarkerLocation = leaflet.latLng(
+      oldMarkerLocation.lat,
+      oldMarkerLocation.lng - 1 * TILE_DEGREES,
+    );
+    playerMarker.setLatLng(newMarkerLocation);
+  }
+  if (e.key === "s") {
+    newMarkerLocation = leaflet.latLng(
+      oldMarkerLocation.lat - 1 * TILE_DEGREES,
+      oldMarkerLocation.lng,
+    );
+    playerMarker.setLatLng(newMarkerLocation);
+  }
+  if (e.key === "d") {
+    newMarkerLocation = leaflet.latLng(
+      oldMarkerLocation.lat,
+      oldMarkerLocation.lng + 1 * TILE_DEGREES,
+    );
+    playerMarker.setLatLng(newMarkerLocation);
+    console.log(oldMarkerLocation.lng + 1 * TILE_DEGREES);
+  }
+});
+
+/*class playerInventory {
+  constructor(itemIn: number) {
+    this.item = itemIn;
+  }
+  item: number;
+}
+
+//let playerPocket = new playerInventory(0);
+playerPocket.item = 2;
+console.log(playerPocket.item);*/
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   // Convert cell numbers into lat/lng bounds
   const origin = CLASSROOM_LATLNG;
+  //const playerLat = playerMarker.getLatLng().lat;
+  //const playerLng = playerMarker.getLatLng().lng;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
@@ -77,11 +126,13 @@ function spawnCache(i: number, j: number) {
   // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
-
+  let latDist = Math.abs(bounds.getCenter().lat - playerMarker.getLatLng().lat);
+  let lngDist = Math.abs(bounds.getCenter().lng - playerMarker.getLatLng().lng);
+  console.log(latDist);
   // Handle interactions with the cache
   rect.bindPopup(() => {
     // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 5);
 
     // The popup offers a description and button
     const popupDiv = document.createElement("div");
@@ -93,11 +144,33 @@ function spawnCache(i: number, j: number) {
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerPoints++;
-        statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
+        latDist = Math.abs(
+          bounds.getCenter().lat - playerMarker.getLatLng().lat,
+        );
+        lngDist = Math.abs(
+          bounds.getCenter().lng - playerMarker.getLatLng().lng,
+        );
+        if (
+          (latDist <= 3 * TILE_DEGREES) && (lngDist <= 3 * TILE_DEGREES) &&
+          (playerPoints == 0)
+        ) {
+          playerPoints += pointValue;
+          pointValue -= pointValue;
+          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+            pointValue.toString();
+          statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
+        } else if (playerPoints == pointValue) {
+          playerPoints = playerPoints * 2;
+          pointValue -= pointValue;
+          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+            pointValue.toString();
+          statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
+          if (playerPoints == 8) {
+            statusPanelDiv.innerHTML = `You win you have achieved 8 Points!`;
+          }
+        } else {
+          console.log("too far");
+        }
       });
 
     return popupDiv;
