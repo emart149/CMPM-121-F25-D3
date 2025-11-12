@@ -31,5 +31,5 @@
 - [x] Correctly Display what the player is currently holding
 - [x] Implement win condition for point goal
 - [x] either spawn grid so that start of marker is in center of each rectangle or after instantiating map, shift location of marker to the middle of center rectangle
-- [] fix issue with initial point values only being limited to 1,2,4. Related to pointValue being update later on
-- [] Add Token Visibility Without Clicking Cache
+- [x] fix issue with initial point values only being limited to 1,2,4. Related to pointValue being update later on
+- [x] Add Token Visibility Without Clicking Cache

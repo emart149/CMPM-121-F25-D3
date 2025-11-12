@@ -11,19 +11,20 @@ import "./_leafletWorkaround.ts"; // fixes for missing Leaflet images
 // Import our luck function
 import luck from "./_luck.ts";
 
-/*Sprite Images for future commit
-let testSprite =
+//Sprite Images
+const zeroSprite =
   "https://img1.pnghut.com/18/23/20/hhcaQFccK2/data-mask-black-template-patch.jpg";
-let oneSprite = "https://www.pngmart.com/files/14/1-Number-PNG-Picture.png";
-let twoSprite =
+const oneSprite = "https://www.pngmart.com/files/14/1-Number-PNG-Picture.png";
+const twoSprite =
   "https://pngimg.com/uploads/number2/Number%202%20PNG%20images%20free%20download_PNG14925.png";
-let threeSprite =
+const threeSprite =
   "https://www.pngarts.com/files/3/Number-3-PNG-High-Quality-Image.png";
-let fourSprite =
+const fourSprite =
   "https://th.bing.com/th/id/R.f68318b63bdee362f09bfee30cc8f903?rik=wy9sjYJEdNaNOQ&pid=ImgRaw&r=0";
-let eightSprite =
+const eightSprite =
   "https://th.bing.com/th/id/R.da97a298bc11e9768e3da740988f5881?rik=e%2bvWni5fTqeKvw&pid=ImgRaw&r=0";
-  */
+const placeHolderSprite =
+  "https://webstockreview.net/images/square-clipart-transparent-6.png";
 // Create basic UI elements
 
 const controlPanelDiv = document.createElement("div");
@@ -76,7 +77,7 @@ playerMarker.addTo(map);
 
 // Display the player's points
 let playerPoints = 0;
-statusPanelDiv.innerHTML = "Holding Nothing...";
+statusPanelDiv.innerHTML = `Current Token: None`;
 
 //Adds support for WASD Controls
 globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -111,10 +112,26 @@ globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
       oldMarkerLocation.lng + 1 * TILE_DEGREES,
     );
     playerMarker.setLatLng(newMarkerLocation);
-    console.log(oldMarkerLocation.lng + 1 * TILE_DEGREES);
   }
 });
 
+function numberToSprite(value: number) {
+  if (value == 0) {
+    return zeroSprite;
+  } else if (value == 1) {
+    return oneSprite;
+  } else if (value == 2) {
+    return twoSprite;
+  } else if (value == 3) {
+    return threeSprite;
+  } else if (value == 4) {
+    return fourSprite;
+  } else if (value == 8) {
+    return eightSprite;
+  } else {
+    return placeHolderSprite;
+  }
+}
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   //variables for storing cache's distance to player
@@ -122,8 +139,12 @@ function spawnCache(i: number, j: number) {
   let lngDistToPlayer: number;
   // Each cache has a random point value, mutable by the player
   let pointValue: number = Math.floor(
-    luck([i, j, "initialValue"].toString()) * 5,
+    luck([i, j, "initialValue"].toString()) * 4,
   );
+  if (pointValue == 3) {
+    pointValue = 4;
+  }
+
   const origin = CLASSROOM_LATLNG;
 
   // Convert cell numbers into lat/lng bounds
@@ -132,16 +153,18 @@ function spawnCache(i: number, j: number) {
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
   ]);
 
-  /*bounds for token sprites for future commit
-  let spriteBounds = leaflet.latLngBounds([
+  //bounds for token sprites for future commit
+  const spriteBounds = leaflet.latLngBounds([
     [
       origin.lat + (i + .5) * TILE_DEGREES,
       origin.lng + (j + .5) * TILE_DEGREES,
     ],
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
-  ]);*/
+  ]);
 
-  //leaflet.imageOverlay(testSprite, spriteBounds).addTo(map);
+  let cacheSprite = numberToSprite(pointValue);
+  let curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds);
+  curSprite.addTo(map);
 
   // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
@@ -152,7 +175,7 @@ function spawnCache(i: number, j: number) {
     // The popup offers a description and button
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
+                <div>There is a token here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
                 <button id="take">take</button>
                 <button id="place">place</button>`;
 
@@ -178,17 +201,22 @@ function spawnCache(i: number, j: number) {
           pointValue -= pointValue;
           popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
             pointValue.toString();
-          statusPanelDiv.innerHTML = `${playerPoints} points accumulated `;
+          statusPanelDiv.innerHTML = `Current Token: ${playerPoints}`;
+          curSprite.remove();
+          cacheSprite = numberToSprite(pointValue);
+          curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(
+            map,
+          ).bringToFront();
           //Checks for Win condition
           if (playerPoints == 8) {
-            statusPanelDiv.innerHTML = `You win you have achieved 8 Points!`;
+            statusPanelDiv.innerHTML = `You win you have created an 8 Token!`;
           }
         } else if (playerPoints != 0) {
           statusPanelDiv.innerHTML =
-            `${playerPoints} points accumulated <br> Already Holding Token`;
+            `Current Token: ${playerPoints}<br> Already Holding Token`;
         } else {
           statusPanelDiv.innerHTML =
-            `${playerPoints} points accumulated <br> Too far to access cache`;
+            `Current Token: ${playerPoints}<br> Too far to access cache`;
         }
       });
 
@@ -198,20 +226,28 @@ function spawnCache(i: number, j: number) {
       .addEventListener("click", () => {
         if (playerPoints == 0) {
           statusPanelDiv.innerHTML =
-            `${playerPoints} points accumulated <br> No Token Available to Place`;
+            `Current Token: ${playerPoints} <br> No Token Available to Place`;
         } else if (pointValue == 0) {
           pointValue += playerPoints;
           playerPoints -= playerPoints;
           popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
             pointValue.toString();
-          statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
+          statusPanelDiv.innerHTML = `Current Token: None`;
+          curSprite.remove();
+          cacheSprite = numberToSprite(pointValue);
+          leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(map);
         } else if (playerPoints == pointValue) {
           playerPoints -= playerPoints;
           pointValue = pointValue * 2;
           popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
             pointValue.toString();
           statusPanelDiv.innerHTML =
-            `${playerPoints} points accumulated <br> You Have Combined Similar Tokens!!!`;
+            `Current Token: None <br> You Have Combined Similar Tokens!!!`;
+          curSprite.remove();
+          cacheSprite = numberToSprite(pointValue);
+          curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(
+            map,
+          );
         }
       });
 
