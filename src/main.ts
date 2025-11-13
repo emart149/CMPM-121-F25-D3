@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/leaflet"
-import leaflet, { LatLng } from "leaflet";
+import leaflet, { LatLng, LatLngBounds } from "leaflet";
 
 // Style sheets
 import "leaflet/dist/leaflet.css"; // supporting style for Leaflet
@@ -25,7 +25,37 @@ const eightSprite =
   "https://th.bing.com/th/id/R.da97a298bc11e9768e3da740988f5881?rik=e%2bvWni5fTqeKvw&pid=ImgRaw&r=0";
 const placeHolderSprite =
   "https://webstockreview.net/images/square-clipart-transparent-6.png";
+
 // Create basic UI elements
+interface playerButton {
+  element: HTMLButtonElement;
+  id: string;
+  message: string;
+}
+
+interface cell {
+  x: number;
+  y: number;
+  initialToken: boolean;
+}
+
+const playerButtonList: playerButton[] = [{
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "UP",
+  message: "UP",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "LEFT",
+  message: "LEFT",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "DOWN",
+  message: "DOWN",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "RIGHT",
+  message: "RIGHT",
+}];
 
 const controlPanelDiv = document.createElement("div");
 controlPanelDiv.id = "controlPanel";
@@ -39,18 +69,65 @@ const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
 
+// Tunable gameplay parameters
+const GAMEPLAY_ZOOM_LEVEL = 18;
+const TILE_DEGREES = 1e-4;
+const NEIGHBORHOOD_SIZE = 20;
+const CACHE_SPAWN_PROBABILITY = 0.1;
+
+//allows support to move player with buttons
+for (const button of playerButtonList) {
+  button.element.innerHTML = `${button.message}`;
+  controlPanelDiv.appendChild(button.element);
+  button.element.addEventListener("click", () => {
+    const oldMarkerLocation = playerMarker.getLatLng();
+    const oldMarkerLat = oldMarkerLocation.lat;
+    const oldMarkerLng = oldMarkerLocation.lng;
+    let newMarkerLocation: LatLng;
+    if (button.message === "UP") {
+      newMarkerLocation = leaflet.latLng(
+        oldMarkerLat + 1 * TILE_DEGREES,
+        oldMarkerLng,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+    }
+    if (button.message === "LEFT") {
+      newMarkerLocation = leaflet.latLng(
+        oldMarkerLocation.lat,
+        oldMarkerLocation.lng - 1 * TILE_DEGREES,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+    }
+    if (button.message === "DOWN") {
+      newMarkerLocation = leaflet.latLng(
+        oldMarkerLocation.lat - 1 * TILE_DEGREES,
+        oldMarkerLocation.lng,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+    }
+    if (button.message === "RIGHT") {
+      newMarkerLocation = leaflet.latLng(
+        oldMarkerLocation.lat,
+        oldMarkerLocation.lng + 1 * TILE_DEGREES,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+    }
+  });
+}
 // Our classroom location
 const CLASSROOM_LATLNG = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
 );
 
-// Tunable gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 18;
-const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 50;
-const CACHE_SPAWN_PROBABILITY = 0.1;
+/*let topLeft = leaflet.latLng(
+  CLASSROOM_LATLNG.lat - NEIGHBORHOOD_SIZE * TILE_DEGREES,
+  CLASSROOM_LATLNG.lng - NEIGHBORHOOD_SIZE * TILE_DEGREES,
+);
+//console.log(topLeft.lat);
+//console.log(topLeft.lng);
 
+let cellArr: cell[][] = [];*/
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
   center: CLASSROOM_LATLNG,
@@ -79,42 +156,6 @@ playerMarker.addTo(map);
 let playerPoints = 0;
 statusPanelDiv.innerHTML = `Current Token: None`;
 
-//Adds support for WASD Controls
-globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
-  const oldMarkerLocation = playerMarker.getLatLng();
-  const oldMarkerLat = oldMarkerLocation.lat;
-  const oldMarkerLng = oldMarkerLocation.lng;
-  let newMarkerLocation: LatLng;
-  if (e.key === "w") {
-    newMarkerLocation = leaflet.latLng(
-      oldMarkerLat + 1 * TILE_DEGREES,
-      oldMarkerLng,
-    );
-    playerMarker.setLatLng(newMarkerLocation);
-  }
-  if (e.key === "a") {
-    newMarkerLocation = leaflet.latLng(
-      oldMarkerLocation.lat,
-      oldMarkerLocation.lng - 1 * TILE_DEGREES,
-    );
-    playerMarker.setLatLng(newMarkerLocation);
-  }
-  if (e.key === "s") {
-    newMarkerLocation = leaflet.latLng(
-      oldMarkerLocation.lat - 1 * TILE_DEGREES,
-      oldMarkerLocation.lng,
-    );
-    playerMarker.setLatLng(newMarkerLocation);
-  }
-  if (e.key === "d") {
-    newMarkerLocation = leaflet.latLng(
-      oldMarkerLocation.lat,
-      oldMarkerLocation.lng + 1 * TILE_DEGREES,
-    );
-    playerMarker.setLatLng(newMarkerLocation);
-  }
-});
-
 function numberToSprite(value: number) {
   if (value == 0) {
     return zeroSprite;
@@ -132,138 +173,194 @@ function numberToSprite(value: number) {
     return placeHolderSprite;
   }
 }
-// Add caches to the map by cell numbers
-function spawnCache(i: number, j: number) {
-  //variables for storing cache's distance to player
-  let latDistToPlayer: number;
-  let lngDistToPlayer: number;
-  // Each cache has a random point value, mutable by the player
-  let pointValue: number = Math.floor(
-    luck([i, j, "initialValue"].toString()) * 4,
-  );
-  if (pointValue == 3) {
-    pointValue = 4;
-  }
 
-  const origin = CLASSROOM_LATLNG;
+class cache {
+  constructor(i: number, j: number) {
+    this.latDistToPlayer = 0;
+    this.lngDistToPlayer = 0;
+    this.pointValue = Math.floor(
+      luck([i, j, "initialValue"].toString()) * 4,
+    );
+    if (this.pointValue == 3) {
+      this.pointValue = 4;
+    }
+    this.origin = CLASSROOM_LATLNG;
+    this.bounds = leaflet.latLngBounds([
+      [this.origin.lat + i * TILE_DEGREES, this.origin.lng + j * TILE_DEGREES],
+      [
+        this.origin.lat + (i + 1) * TILE_DEGREES,
+        this.origin.lng + (j + 1) * TILE_DEGREES,
+      ],
+    ]);
 
-  // Convert cell numbers into lat/lng bounds
-  const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
-  ]);
+    //bounds for token sprites for future commit
+    this.spriteBounds = leaflet.latLngBounds([
+      [
+        this.origin.lat + (i + .5) * TILE_DEGREES,
+        this.origin.lng + (j + .5) * TILE_DEGREES,
+      ],
+      [
+        this.origin.lat + (i + 1) * TILE_DEGREES,
+        this.origin.lng + (j + 1) * TILE_DEGREES,
+      ],
+    ]);
 
-  //bounds for token sprites for future commit
-  const spriteBounds = leaflet.latLngBounds([
-    [
-      origin.lat + (i + .5) * TILE_DEGREES,
-      origin.lng + (j + .5) * TILE_DEGREES,
-    ],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
-  ]);
+    if (isCellVisible(this.bounds) == false) {
+      return;
+    } else {
+      numCaches++;
+    }
 
-  let cacheSprite = numberToSprite(pointValue);
-  let curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds);
-  curSprite.addTo(map);
+    this.cacheSprite = numberToSprite(this.pointValue);
+    this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
+    this.curSprite.addTo(map);
 
-  // Add a rectangle to the map to represent the cache
-  const rect = leaflet.rectangle(bounds);
-  rect.addTo(map);
+    this.rect = leaflet.rectangle(this.bounds);
+    this.rect.addTo(map);
 
-  // Handle interactions with the cache
-  rect.bindPopup(() => {
-    // The popup offers a description and button
-    const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `
-                <div>There is a token here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
+    this.rect.bindPopup(() => {
+      // The popup offers a description and button
+      const popupDiv = document.createElement("div");
+      popupDiv.innerHTML = `
+                <div>There is a token here at "${i},${j}". It has value <span id="value">${this.pointValue}</span>.</div>
                 <button id="take">take</button>
                 <button id="place">place</button>`;
 
-    // Clicking the button decrements the cache's value and increments the player's points
-    popupDiv
-      .querySelector<HTMLButtonElement>("#take")!
-      .addEventListener("click", () => {
-        //updates distance variable to player when take button is clicked
-        latDistToPlayer = Math.abs(
-          bounds.getCenter().lat - playerMarker.getLatLng().lat,
-        );
-        lngDistToPlayer = Math.abs(
-          bounds.getCenter().lng - playerMarker.getLatLng().lng,
-        );
-
-        //checks if player is close enough to cache and has room in inventory to take token
-        if (
-          (latDistToPlayer <= 3 * TILE_DEGREES) &&
-          (lngDistToPlayer <= 3 * TILE_DEGREES) &&
-          (playerPoints == 0)
-        ) {
-          playerPoints += pointValue;
-          pointValue -= pointValue;
-          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            pointValue.toString();
-          statusPanelDiv.innerHTML = `Current Token: ${playerPoints}`;
-          curSprite.remove();
-          cacheSprite = numberToSprite(pointValue);
-          curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(
-            map,
-          ).bringToFront();
-          //Checks for Win condition
-          if (playerPoints == 8) {
-            statusPanelDiv.innerHTML = `You win you have created an 8 Token!`;
-          }
-        } else if (playerPoints != 0) {
-          statusPanelDiv.innerHTML =
-            `Current Token: ${playerPoints}<br> Already Holding Token`;
-        } else {
-          statusPanelDiv.innerHTML =
-            `Current Token: ${playerPoints}<br> Too far to access cache`;
-        }
-      });
-
-    //if player is holding token, places token into empty cache, or combines with similar token within cache
-    popupDiv
-      .querySelector<HTMLButtonElement>("#place")!
-      .addEventListener("click", () => {
-        if (playerPoints == 0) {
-          statusPanelDiv.innerHTML =
-            `Current Token: ${playerPoints} <br> No Token Available to Place`;
-        } else if (pointValue == 0) {
-          pointValue += playerPoints;
-          playerPoints -= playerPoints;
-          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            pointValue.toString();
-          statusPanelDiv.innerHTML = `Current Token: None`;
-          curSprite.remove();
-          cacheSprite = numberToSprite(pointValue);
-          leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(map);
-        } else if (playerPoints == pointValue) {
-          playerPoints -= playerPoints;
-          pointValue = pointValue * 2;
-          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            pointValue.toString();
-          statusPanelDiv.innerHTML =
-            `Current Token: None <br> You Have Combined Similar Tokens!!!`;
-          curSprite.remove();
-          cacheSprite = numberToSprite(pointValue);
-          curSprite = leaflet.imageOverlay(cacheSprite, spriteBounds).addTo(
-            map,
+      // Clicking the button decrements the cache's value and increments the player's points
+      popupDiv
+        .querySelector<HTMLButtonElement>("#take")!
+        .addEventListener("click", () => {
+          //updates distance variable to player when take button is clicked
+          this.latDistToPlayer = Math.abs(
+            this.bounds.getCenter().lat - playerMarker.getLatLng().lat,
           );
-        }
-      });
+          this.lngDistToPlayer = Math.abs(
+            this.bounds.getCenter().lng - playerMarker.getLatLng().lng,
+          );
 
-    return popupDiv;
-  });
+          //checks if player is close enough to cache and has room in inventory to take token
+          if (
+            (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+            (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+            (playerPoints == 0)
+          ) {
+            playerPoints += this.pointValue;
+            this.pointValue -= this.pointValue;
+            popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
+              .pointValue.toString();
+            statusPanelDiv.innerHTML = `Current Token: ${playerPoints}`;
+            if (this.curSprite) this.curSprite.remove();
+            this.cacheSprite = numberToSprite(this.pointValue);
+            this.curSprite = leaflet.imageOverlay(
+              this.cacheSprite,
+              this.spriteBounds,
+            ).addTo(
+              map,
+            ).bringToFront();
+            //Checks for Win condition
+            if (playerPoints == 8) {
+              statusPanelDiv.innerHTML = `You win you have created an 8 Token!`;
+            }
+          } else if (playerPoints != 0) {
+            statusPanelDiv.innerHTML =
+              `Current Token: ${playerPoints}<br> Already Holding Token`;
+          } else {
+            statusPanelDiv.innerHTML =
+              `Current Token: ${playerPoints}<br> Too far to access cache`;
+          }
+        });
+
+      //if player is holding token, places token into empty cache, or combines with similar token within cache
+      popupDiv
+        .querySelector<HTMLButtonElement>("#place")!
+        .addEventListener("click", () => {
+          if (playerPoints == 0) {
+            statusPanelDiv.innerHTML =
+              `Current Token: ${playerPoints} <br> No Token Available to Place`;
+          } else if (this.pointValue == 0) {
+            this.pointValue += playerPoints;
+            playerPoints -= playerPoints;
+            popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
+              .pointValue.toString();
+            statusPanelDiv.innerHTML = `Current Token: None`;
+            if (this.curSprite) this.curSprite.remove();
+
+            this.cacheSprite = numberToSprite(this.pointValue);
+            leaflet.imageOverlay(this.cacheSprite, this.spriteBounds).addTo(
+              map,
+            );
+          } else if (playerPoints == this.pointValue) {
+            playerPoints -= playerPoints;
+            this.pointValue = this.pointValue * 2;
+            popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
+              .pointValue.toString();
+            statusPanelDiv.innerHTML =
+              `Current Token: None <br> You Have Combined Similar Tokens!!!`;
+            if (this.curSprite) this.curSprite.remove();
+            this.cacheSprite = numberToSprite(this.pointValue);
+            this.curSprite = leaflet.imageOverlay(
+              this.cacheSprite,
+              this.spriteBounds,
+            ).addTo(
+              map,
+            );
+          }
+        });
+
+      return popupDiv;
+    });
+  }
+
+  latDistToPlayer: number;
+  lngDistToPlayer: number;
+  // Each cache has a random point value, mutable by the player
+  pointValue: number;
+  origin: LatLng;
+  // Convert cell numbers into lat/lng bounds
+  bounds: LatLngBounds;
+
+  //bounds for token sprites for future commit
+  spriteBounds: LatLngBounds;
+
+  cacheSprite;
+  curSprite;
+
+  // Add a rectangle to the map to represent the cache
+  rect;
+
+  // Handle interactions with the cache
 }
 
+function isCellVisible(cell: LatLngBounds) {
+  const currentView: LatLngBounds = map.getBounds();
+  return currentView.overlaps(cell);
+}
 // Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
+let numCaches = 0;
+function spawnAll() {
+  for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
+    for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
+      // If location i,j is lucky enough, spawn a cache!
+      const isCache: boolean =
+        luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY;
+      /*const newCell: cell = { x: j, y: i, initialToken: isCache };
+      cellArr[i][j] = newCell;*/
+      if (isCache) {
+        new cache(i, j);
+      }
     }
   }
 }
+
+spawnAll();
+console.log("Num caches: " + numCaches);
+map.addEventListener("moveend", () => {
+  numCaches = 0;
+  console.log("done moving");
+  //CLASSROOM_LATLNG = map.getCenter();
+  spawnAll();
+  console.log("Num caches: " + numCaches);
+});
 
 //changes location of player marker so that centered in each rectangle
 const newMarkerLocation = leaflet.latLng(

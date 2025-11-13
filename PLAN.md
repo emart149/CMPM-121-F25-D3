@@ -19,7 +19,7 @@
 - Key technical challenge: Can you assemble a map-based user interface using the Leaflet mapping framework?
 - Key gameplay challenge: Can players collect and craft tokens from nearby locations to finally make one of sufficiently high value?
 
-### STEPS
+### D3.a STEPS
 
 - [x] Spawn Cells across whole map
 - [x] Player can Move
@@ -33,3 +33,25 @@
 - [x] either spawn grid so that start of marker is in center of each rectangle or after instantiating map, shift location of marker to the middle of center rectangle
 - [x] fix issue with initial point values only being limited to 1,2,4. Related to pointValue being update later on
 - [x] Add Token Visibility Without Clicking Cache
+
+## D3.b: Globe-spanning gameplay
+
+- Key technical challenge: Can you set up your implementation to support gameplay anywhere in the real world, not just locations near our classroom?
+- Key gameplay challenge: Can players craft an even higher value token by moving to other locations to get access to additional crafting materials?
+
+### D3.b STEPS
+
+- [x] Create Data driven buttons to move player
+- [] track which cells contain caches using array of arrays(grid)
+  - [x] whenever map is moved it spawns more rectangles each time based of nearest center cell
+  - [] Deletes all cells out of view(create function that wipes old cells, then draws new ones)
+    - []maybe create class for each cell that has destroy function?
+  - [] remembers which cells contain tokens or not
+- []always despawn/spawn cells
+- []Anchored at Null Island
+- []Only cells near player are accessible
+- []cells forget memory when out of view and respawn with new values
+- []
+- []
+- []
+- []
