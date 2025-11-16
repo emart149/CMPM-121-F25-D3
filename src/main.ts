@@ -33,12 +33,6 @@ interface playerButton {
   message: string;
 }
 
-interface cell {
-  x: number;
-  y: number;
-  initialToken: boolean;
-}
-
 const playerButtonList: playerButton[] = [{
   element: document.createElement("button") as HTMLButtonElement,
   id: "UP",
@@ -68,69 +62,25 @@ document.body.append(mapDiv);
 const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
+const cacheArr: cache[] = [];
 
 // Tunable gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 18;
+const GAMEPLAY_ZOOM_LEVEL = 16;
 const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 20;
 const CACHE_SPAWN_PROBABILITY = 0.1;
+const NEIGHBORHOOD_SIZE = 20;
 
-//allows support to move player with buttons
-for (const button of playerButtonList) {
-  button.element.innerHTML = `${button.message}`;
-  controlPanelDiv.appendChild(button.element);
-  button.element.addEventListener("click", () => {
-    const oldMarkerLocation = playerMarker.getLatLng();
-    const oldMarkerLat = oldMarkerLocation.lat;
-    const oldMarkerLng = oldMarkerLocation.lng;
-    let newMarkerLocation: LatLng;
-    if (button.message === "UP") {
-      newMarkerLocation = leaflet.latLng(
-        oldMarkerLat + 1 * TILE_DEGREES,
-        oldMarkerLng,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-    }
-    if (button.message === "LEFT") {
-      newMarkerLocation = leaflet.latLng(
-        oldMarkerLocation.lat,
-        oldMarkerLocation.lng - 1 * TILE_DEGREES,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-    }
-    if (button.message === "DOWN") {
-      newMarkerLocation = leaflet.latLng(
-        oldMarkerLocation.lat - 1 * TILE_DEGREES,
-        oldMarkerLocation.lng,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-    }
-    if (button.message === "RIGHT") {
-      newMarkerLocation = leaflet.latLng(
-        oldMarkerLocation.lat,
-        oldMarkerLocation.lng + 1 * TILE_DEGREES,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-    }
-  });
-}
 // Our classroom location
-const CLASSROOM_LATLNG = leaflet.latLng(
+const _CLASSROOM_LATLNG = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
 );
+//if origin at NULL Island there should be top left point of cell at (36.9980,-122.0571)
+const NULL_ISLAND = leaflet.latLng(0, 0);
 
-/*let topLeft = leaflet.latLng(
-  CLASSROOM_LATLNG.lat - NEIGHBORHOOD_SIZE * TILE_DEGREES,
-  CLASSROOM_LATLNG.lng - NEIGHBORHOOD_SIZE * TILE_DEGREES,
-);
-//console.log(topLeft.lat);
-//console.log(topLeft.lng);
-
-let cellArr: cell[][] = [];*/
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
-  center: CLASSROOM_LATLNG,
+  center: NULL_ISLAND,
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -148,7 +98,7 @@ leaflet
   .addTo(map);
 
 // Add a marker to represent the player
-const playerMarker = leaflet.marker(CLASSROOM_LATLNG);
+const playerMarker = leaflet.marker(NULL_ISLAND);
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
@@ -156,24 +106,64 @@ playerMarker.addTo(map);
 let playerPoints = 0;
 statusPanelDiv.innerHTML = `Current Token: None`;
 
-function numberToSprite(value: number) {
-  if (value == 0) {
-    return zeroSprite;
-  } else if (value == 1) {
-    return oneSprite;
-  } else if (value == 2) {
-    return twoSprite;
-  } else if (value == 3) {
-    return threeSprite;
-  } else if (value == 4) {
-    return fourSprite;
-  } else if (value == 8) {
-    return eightSprite;
-  } else {
-    return placeHolderSprite;
-  }
+//allows support to move player with buttons
+for (const button of playerButtonList) {
+  button.element.innerHTML = `${button.message}`;
+  controlPanelDiv.appendChild(button.element);
+  button.element.addEventListener("click", () => {
+    let newMarkerLocation: LatLng;
+    if (button.message === "UP") {
+      newMarkerLocation = leaflet.latLng(
+        playerMarker.getLatLng().lat + 1 * TILE_DEGREES,
+        playerMarker.getLatLng().lng,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+      console.log(
+        "current LatLng: (" + playerMarker.getLatLng().lng + ", " +
+          playerMarker.getLatLng().lng + ")",
+      );
+      map.setView(newMarkerLocation);
+    }
+    if (button.message === "LEFT") {
+      newMarkerLocation = leaflet.latLng(
+        playerMarker.getLatLng().lat,
+        playerMarker.getLatLng().lng - 1 * TILE_DEGREES,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+      console.log(
+        "current LatLng: (" + playerMarker.getLatLng().lng + ", " +
+          playerMarker.getLatLng().lng + ")",
+      );
+      map.setView(newMarkerLocation);
+    }
+    if (button.message === "DOWN") {
+      newMarkerLocation = leaflet.latLng(
+        playerMarker.getLatLng().lat - 1 * TILE_DEGREES,
+        playerMarker.getLatLng().lng,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+      console.log(
+        "current LatLng: (" + playerMarker.getLatLng().lng + ", " +
+          playerMarker.getLatLng().lng + ")",
+      );
+      map.setView(newMarkerLocation);
+    }
+    if (button.message === "RIGHT") {
+      newMarkerLocation = leaflet.latLng(
+        playerMarker.getLatLng().lat,
+        playerMarker.getLatLng().lng + 1 * TILE_DEGREES,
+      );
+      playerMarker.setLatLng(newMarkerLocation);
+      console.log(
+        "current LatLng: (" + playerMarker.getLatLng().lng + ", " +
+          playerMarker.getLatLng().lng + ")",
+      );
+      map.setView(newMarkerLocation);
+    }
+  });
 }
 
+// ----cache clas----
 class cache {
   constructor(i: number, j: number) {
     this.latDistToPlayer = 0;
@@ -184,7 +174,7 @@ class cache {
     if (this.pointValue == 3) {
       this.pointValue = 4;
     }
-    this.origin = CLASSROOM_LATLNG;
+    this.origin = NULL_ISLAND;
     this.bounds = leaflet.latLngBounds([
       [this.origin.lat + i * TILE_DEGREES, this.origin.lng + j * TILE_DEGREES],
       [
@@ -205,19 +195,36 @@ class cache {
       ],
     ]);
 
+    //only create rectangle & cache sprite is visible
     if (isCellVisible(this.bounds) == false) {
       return;
     } else {
+      this.rect = leaflet.rectangle(this.bounds);
+      this.rect.addTo(map);
+
+      this.cacheSprite = numberToSprite(this.pointValue);
+      this.curSprite = leaflet.imageOverlay(
+        this.cacheSprite,
+        this.spriteBounds,
+      );
+      this.curSprite.addTo(map);
       numCaches++;
     }
 
-    this.cacheSprite = numberToSprite(this.pointValue);
-    this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
-    this.curSprite.addTo(map);
+    if (this.bounds.equals(getPlayerCell())) {
+      console.log("center Bounds:" + getCenterCell());
+      this.rect = leaflet.rectangle(getPlayerCell(), {
+        fillColor: `#000000`,
+        fillOpacity: 1,
+      });
+      this.rect.addTo(map);
+    }
 
-    this.rect = leaflet.rectangle(this.bounds);
-    this.rect.addTo(map);
+    if (this.bounds.contains(getPlayerLatLng())) {
+      console.log("this cell contains player latLng");
+    }
 
+    // Handle interactions with the cache
     this.rect.bindPopup(() => {
       // The popup offers a description and button
       const popupDiv = document.createElement("div");
@@ -328,43 +335,148 @@ class cache {
   // Add a rectangle to the map to represent the cache
   rect;
 
-  // Handle interactions with the cache
+  destroyCell() {
+    this.rect?.remove();
+    this.curSprite?.remove();
+  }
+  createCell() {
+    this.rect = leaflet.rectangle(this.bounds);
+    this.rect.addTo(map);
+
+    this.cacheSprite = numberToSprite(this.pointValue);
+    this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
+    this.curSprite.addTo(map);
+  }
 }
 
+//take in number and outputs corresponding string to sprite
+function numberToSprite(value: number) {
+  if (value == 0) {
+    return zeroSprite;
+  } else if (value == 1) {
+    return oneSprite;
+  } else if (value == 2) {
+    return twoSprite;
+  } else if (value == 3) {
+    return threeSprite;
+  } else if (value == 4) {
+    return fourSprite;
+  } else if (value == 8) {
+    return eightSprite;
+  } else {
+    return placeHolderSprite;
+  }
+}
+
+//checks if Cell is visible to current map view
 function isCellVisible(cell: LatLngBounds) {
   const currentView: LatLngBounds = map.getBounds();
   return currentView.overlaps(cell);
 }
-// Look around the player's neighborhood for caches to spawn
+
+// spawns caches in NEIGHBORHOOD_SIZE radius around this.origin in each cache
 let numCaches = 0;
 function spawnAll() {
-  for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-    for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
+  const centerLatLng = getCenterCell().getNorthWest();
+  const radiusDown = -NEIGHBORHOOD_SIZE + centerLatLng.lat / TILE_DEGREES;
+  const radiusUp = NEIGHBORHOOD_SIZE + centerLatLng.lat / TILE_DEGREES;
+  const radiusLeft = -NEIGHBORHOOD_SIZE + centerLatLng.lng / TILE_DEGREES;
+  const radiusRight = NEIGHBORHOOD_SIZE + centerLatLng.lng / TILE_DEGREES;
+  for (let i = radiusDown; i < radiusUp; i++) {
+    for (let j = radiusLeft; j < radiusRight; j++) {
       // If location i,j is lucky enough, spawn a cache!
       const isCache: boolean =
         luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY;
-      /*const newCell: cell = { x: j, y: i, initialToken: isCache };
-      cellArr[i][j] = newCell;*/
       if (isCache) {
-        new cache(i, j);
+        cacheArr.push(new cache(i, j));
       }
     }
   }
 }
 
+//destroys calls destroyCell method for each cache which removes rectangle and coin sprite
+function deleteAll() {
+  for (const elements of cacheArr) {
+    elements.destroyCell();
+  }
+}
+
+//gets player's latlng
+function getPlayerLatLng() {
+  const markerLat = playerMarker.getLatLng().lat;
+  const markerLng = playerMarker.getLatLng().lng;
+  //console.log("current LatLng: (" + markerLat + ", " + markerLng + ")");
+  return leaflet.latLng(markerLat, markerLng);
+}
+
+//gets cell bounds that playerMarker is in
+function getPlayerCell() {
+  const playerCellNW = leaflet.latLng(
+    playerMarker.getLatLng().lat + 0.5 * TILE_DEGREES,
+    playerMarker.getLatLng().lng - 0.5 * TILE_DEGREES,
+  );
+  const playerCellSE = leaflet.latLng(
+    playerMarker.getLatLng().lat - 0.5 * TILE_DEGREES,
+    playerMarker.getLatLng().lng + 0.5 * TILE_DEGREES,
+  );
+  const playerCellBounds: LatLngBounds = leaflet.latLngBounds(
+    playerCellNW,
+    playerCellSE,
+  );
+  return playerCellBounds;
+  //use coordinates in top left and iterate through area and check
+}
+
+//get cell in center of screen
+function getCenterCell() {
+  const centerLatLng = map.getCenter();
+  const topLeft = leaflet.latLng(
+    Math.ceil(centerLatLng.lat * 10000) / 10000,
+    Math.ceil(centerLatLng.lng * 10000) / 10000,
+  );
+  const bottomRight = leaflet.latLng(
+    Math.floor(centerLatLng.lat * 10000) / 10000,
+    Math.floor(centerLatLng.lng * 10000) / 10000,
+  );
+  const centerBounds = leaflet.latLngBounds(topLeft, bottomRight);
+
+  const centerRect = leaflet.rectangle(centerBounds, {
+    fillColor: `#FF0000`,
+    fillOpacity: 1,
+  });
+  centerRect.addTo(map);
+  console.log("center: (" + topLeft.lat + ", " + topLeft.lng + ")");
+  return centerBounds;
+}
+
 spawnAll();
 console.log("Num caches: " + numCaches);
+//--CurrentMethod--
+/*
+1. creates caches in specific area
+2. deletes all caches
+3. checks if each cache is in view(even checks caches out of view)
+4. spawns cache if in view
+
+---New Method idea---
+1.delete all caches
+2.find bounds of the cell in center of view
+  2.a create bounds for new view
+3.start looping from top left cell to bottom right cell in view to check if they contain caches
+4.only spawn cache if in view
+
+*/
 map.addEventListener("moveend", () => {
   numCaches = 0;
   console.log("done moving");
-  //CLASSROOM_LATLNG = map.getCenter();
+  deleteAll();
   spawnAll();
   console.log("Num caches: " + numCaches);
 });
 
 //changes location of player marker so that centered in each rectangle
 const newMarkerLocation = leaflet.latLng(
-  CLASSROOM_LATLNG.lat - 0.5 * TILE_DEGREES,
-  CLASSROOM_LATLNG.lng - 0.5 * TILE_DEGREES,
+  NULL_ISLAND.lat + 0.5 * TILE_DEGREES,
+  NULL_ISLAND.lng + 0.5 * TILE_DEGREES,
 );
 playerMarker.setLatLng(newMarkerLocation);
