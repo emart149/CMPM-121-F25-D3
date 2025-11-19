@@ -42,23 +42,18 @@
 ### D3.b STEPS
 
 - [x] Create Data driven buttons to move player
-- [] track which cells contain caches using array of arrays(grid)
-  - [x] whenever map is moved it spawns more rectangles each time based of nearest center cell
-  - [x] Deletes all cells out of view(create function that wipes old cells, then draws new ones)
-    - [X]maybe create class for each cell that has destroy function?
+- [x] whenever map is moved it spawns more rectangles each time based of nearest center cell
+- [x] Deletes all cells out of view(create function that wipes old cells, then draws new ones)
+  - [X]maybe create class for each cell that has destroy function?
   - [x] remembers which cells contain tokens or not
+  - []push caches to array and check if each cache is in view and only delete the ones not in view(not complete wipe)
 - [X]always despawn/spawn cells
 - [X]only check possible cells in view if they have caches, not all possible caches in the world
 - [x] get center coordinate and just get bounds of center cell at least, then for example go up 20 cels and left 10 cells to get the coordinates of the top left cell then iterate through all possible cells in view
-- []maybe get center coordinate and find way to narrow down search for boundry
-  ex: if coordinates are (150,20) only check positive lat, positive lng
-- [] have the map only move when player moves so just add 0.0001 to everything one at a time
-  ex: player moves up so origin still same but add 0.0001 to anything related to lat coordinates?
 - [X]Anchored at Null Island
 - [X]Only cells near player are accessible
-- [X]cells forget memory when out of view and respawn with new values
+- [X]cells forget memory when out of view and respawn with original values
 - [X]spawn new cells with dragging map
-- []
-- []
-- []
-- []
+- [X]increase token value threshold for win condition
+  - [X]add "16 token"
+- [X]delete non visible cells from array of existing caches
