@@ -57,3 +57,14 @@
 - [X]increase token value threshold for win condition
   - [X]add "16 token"
 - [X]delete non visible cells from array of existing caches
+
+## D3.c: Object persistence
+
+Key technical challenge: Can your software accurately remember the state of map cells even when they scroll off the screen?
+Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens by moving into and out of a region repeatedly to get access to fresh resources?
+
+### D3.c STEPS
+
+- []Implement Memento Pattern so that cells remember their state when re-appearing on screen
+  - []Implement Flyweight patten to only remember states for cells that have been altered
+    - [] so if cell off screen has been modified by user use instrinsic properties that chnage but if the cell has not been changed by user just use properties from flyweight??
