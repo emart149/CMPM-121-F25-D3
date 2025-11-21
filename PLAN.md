@@ -65,6 +65,13 @@ Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens
 
 ### D3.c STEPS
 
-- []Implement Memento Pattern so that cells remember their state when re-appearing on screen
-  - []Implement Flyweight patten to only remember states for cells that have been altered
-    - [] so if cell off screen has been modified by user use instrinsic properties that chnage but if the cell has not been changed by user just use properties from flyweight??
+- [X]Implement Memento Pattern so that cells remember their state when re-appearing on screen
+  -[]create memento object within each cache object that can essentially turn on/off necessary caches and restore to specific state if it has been altered
+  -[]memento capabilities:
+  -[] save/restore pointValue
+  -[] save/restore sprite
+  -[] save/restore rectangle bounds
+  - [X]Implement Flyweight patten to only remember states for cells that have been altered
+    - [X]create function that sets pointValue for cache object
+    - [x] if cell has been modified, store most recent value in map
+    - [x] if cell i and j value in map then extract from it and place new cell on top with that value

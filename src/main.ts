@@ -70,6 +70,7 @@ let playerPoints = 0;
 //----Cache Arrays----
 const cacheArr: cache[] = [];
 const newCacheArr: cache[] = [];
+const gridMap = new Map();
 
 // ----Tunable gameplay parameters----
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -109,7 +110,6 @@ const playerMarker = leaflet.marker(leaflet.latLng(
 ));
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
-
 //----Moving Player with Buttons----
 for (const button of playerButtonList) {
   button.element.innerHTML = `${button.message}`;
@@ -160,6 +160,8 @@ class cache {
     this.lngDistToPlayer = 0;
     this.origin = NULL_ISLAND;
     this.pointValue = this.ranValue(i, j);
+    this.initialPointValue = this.pointValue;
+    this.memento = new memento();
     this.bounds = leaflet.latLngBounds([
       [
         this.origin.lat + i * TILE_DEGREES,
@@ -200,9 +202,11 @@ class cache {
   }
 
   //Class properties
+  memento: memento;
   latDistToPlayer: number;
   lngDistToPlayer: number;
   pointValue: number;
+  initialPointValue: number;
   origin: LatLng;
   bounds: LatLngBounds;
   spriteBounds: LatLngBounds;
@@ -307,21 +311,28 @@ class cache {
         .pointValue.toString();
       statusPanelDiv.innerHTML =
         `Current Token: None <br> You Have Combined Similar Tokens!!!`;
-      if (this.curSprite) this.curSprite.remove();
-      this.cacheSprite = numberToSprite(this.pointValue);
-      this.curSprite = leaflet.imageOverlay(
-        this.cacheSprite,
-        this.spriteBounds,
-      ).addTo(
-        map,
-      );
+      this.changeSprite();
     }
   }
 
+  changeSprite() {
+    if (this.curSprite) this.curSprite.remove();
+    this.cacheSprite = numberToSprite(this.pointValue);
+    this.curSprite = leaflet.imageOverlay(
+      this.cacheSprite,
+      this.spriteBounds,
+    ).addTo(
+      map,
+    );
+  }
   destroyCell() {
+    const currentValue: number = this.pointValue;
     if (!isCellVisible(this.bounds)) {
       this.rect?.remove();
       this.curSprite?.remove();
+      if (this.pointValue != this.initialPointValue) {
+        gridMap.set(`${this.i}` + `${this.j}`, currentValue);
+      }
     }
   }
   createCell() {
@@ -342,6 +353,13 @@ class cache {
 
   isSeen() {
     return isCellVisible(this.bounds);
+  }
+
+  setPointValue(val: number) {
+    this.pointValue = val;
+  }
+  setInitialPointValue(val: number) {
+    this.initialPointValue = val;
   }
 }
 
@@ -411,10 +429,25 @@ function spawnAll() {
         //-- if spot not taken and cell can be seen, then push to cacheArr
         if ((!spotTaken) && isCellVisible(newCacheBounds)) {
           const newCache = new cache(i, j);
+
+          //
+          if (typeof (gridMap.get(`${i}` + `${j}`)) === "number") {
+            newCache.setPointValue(gridMap.get(`${i}` + `${j}`));
+            newCache.setInitialPointValue(gridMap.get(`${i}` + `${j}`));
+            newCache.changeSprite();
+          }
           cacheArr.push(newCache);
         }
       }
     }
+  }
+}
+
+class memento {
+  constructor() {
+  }
+
+  restore() {
   }
 }
 
