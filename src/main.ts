@@ -70,6 +70,7 @@ let playerPoints = 0;
 //----Cache Arrays----
 const cacheArr: cache[] = [];
 const newCacheArr: cache[] = [];
+//this is the caretaker for the mementos since it stores all of the token values for only the modified cells
 const gridMap = new Map();
 
 // ----Tunable gameplay parameters----
@@ -159,9 +160,8 @@ class cache {
     this.latDistToPlayer = 0;
     this.lngDistToPlayer = 0;
     this.origin = NULL_ISLAND;
-    this.pointValue = this.ranValue(i, j);
-    this.initialPointValue = this.pointValue;
-    this.memento = new memento();
+    this.initialPointValue = this.ranValue(i, j);
+
     this.bounds = leaflet.latLngBounds([
       [
         this.origin.lat + i * TILE_DEGREES,
@@ -189,8 +189,9 @@ class cache {
 
     this.rect = leaflet.rectangle(this.bounds);
     this.rect.addTo(map);
-
-    this.cacheSprite = numberToSprite(this.pointValue);
+    //Another example of the  Flyweight pattern in addition to the spawnAll() function since
+    // the cache class is utilizing the token values which are stored within gridMap
+    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
       this.spriteBounds,
@@ -202,10 +203,8 @@ class cache {
   }
 
   //Class properties
-  memento: memento;
   latDistToPlayer: number;
   lngDistToPlayer: number;
-  pointValue: number;
   initialPointValue: number;
   origin: LatLng;
   bounds: LatLngBounds;
@@ -230,7 +229,9 @@ class cache {
     // The popup offers a description and button
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-                <div>There is a token here at "${i},${j}". It has value <span id="value">${this.pointValue}</span>.</div>
+                <div>There is a token here at "${i},${j}". It has value <span id="value">${
+      gridMap.get(`${this.i}` + `${this.j}`)
+    }</span>.</div>
                 <button id="take">take</button>
                 <button id="place">place</button>`;
 
@@ -262,13 +263,14 @@ class cache {
       (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
       (playerPoints == 0)
     ) {
-      playerPoints += this.pointValue;
-      this.pointValue -= this.pointValue;
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
-        .pointValue.toString();
+      playerPoints += gridMap.get(`${this.i}` + `${this.j}`);
+      gridMap.set(`${this.i}` + `${this.j}`, 0);
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
+        `${this.i}` + `${this.j}`,
+      ).toString();
       statusPanelDiv.innerHTML = `Current Token: ${playerPoints}`;
       if (this.curSprite) this.curSprite.remove();
-      this.cacheSprite = numberToSprite(this.pointValue);
+      this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
       this.curSprite = leaflet.imageOverlay(
         this.cacheSprite,
         this.spriteBounds,
@@ -292,23 +294,31 @@ class cache {
     if (playerPoints == 0) {
       statusPanelDiv.innerHTML =
         `Current Token: ${playerPoints} <br> No Token Available to Place`;
-    } else if (this.pointValue == 0) {
-      this.pointValue += playerPoints;
+    } else if (gridMap.get(`${this.i}` + `${this.j}`) == 0) {
+      gridMap.set(
+        `${this.i}` + `${this.j}`,
+        gridMap.get(`${this.i}` + `${this.j}`) + playerPoints,
+      );
       playerPoints -= playerPoints;
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
-        .pointValue.toString();
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
+        `${this.i}` + `${this.j}`,
+      ).toString();
       statusPanelDiv.innerHTML = `Current Token: None`;
       if (this.curSprite) this.curSprite.remove();
 
-      this.cacheSprite = numberToSprite(this.pointValue);
+      this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
       leaflet.imageOverlay(this.cacheSprite, this.spriteBounds).addTo(
         map,
       );
-    } else if (playerPoints == this.pointValue) {
+    } else if (playerPoints == gridMap.get(`${this.i}` + `${this.j}`)) {
       playerPoints -= playerPoints;
-      this.pointValue = this.pointValue * 2;
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = this
-        .pointValue.toString();
+      gridMap.set(
+        `${this.i}` + `${this.j}`,
+        gridMap.get(`${this.i}` + `${this.j}`) * 2,
+      );
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
+        `${this.i}` + `${this.j}`,
+      ).toString();
       statusPanelDiv.innerHTML =
         `Current Token: None <br> You Have Combined Similar Tokens!!!`;
       this.changeSprite();
@@ -317,7 +327,7 @@ class cache {
 
   changeSprite() {
     if (this.curSprite) this.curSprite.remove();
-    this.cacheSprite = numberToSprite(this.pointValue);
+    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
       this.spriteBounds,
@@ -326,20 +336,22 @@ class cache {
     );
   }
   destroyCell() {
-    const currentValue: number = this.pointValue;
-    if (!isCellVisible(this.bounds)) {
-      this.rect?.remove();
-      this.curSprite?.remove();
-      if (this.pointValue != this.initialPointValue) {
-        gridMap.set(`${this.i}` + `${this.j}`, currentValue);
-      }
+    this.rect?.remove();
+    this.curSprite?.remove();
+    //Memento Variant: when the cell is destroyed and if it's current token value is not the same as the original
+    //token, then it's contents are stored within the map. Therefore, this object is the orginator since
+    //it's state is being saved
+    if (
+      gridMap.get(`${this.i}` + `${this.j}`) == this.initialPointValue
+    ) {
+      gridMap.delete(`${this.i}` + `${this.j}`);
     }
   }
   createCell() {
     this.rect = leaflet.rectangle(this.bounds);
     this.rect.addTo(map);
 
-    this.cacheSprite = numberToSprite(this.pointValue);
+    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
     this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
     this.curSprite.addTo(map);
   }
@@ -356,7 +368,7 @@ class cache {
   }
 
   setPointValue(val: number) {
-    this.pointValue = val;
+    gridMap.set(`${this.i}` + `${this.j}`, val);
   }
   setInitialPointValue(val: number) {
     this.initialPointValue = val;
@@ -407,7 +419,6 @@ function spawnAll() {
       //--Check If location i,j is lucky enough to spawn a cache
       const isCache: boolean =
         luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY;
-      let spotTaken = false;
       const newCacheBounds = leaflet.latLngBounds([
         [
           NULL_ISLAND.lat + i * TILE_DEGREES,
@@ -421,33 +432,23 @@ function spawnAll() {
       //-- if location is lucky enough to get cache
       //  --if cache already exists in this location within CacheArr then spot is taken
       if (isCache) {
-        for (const elements of cacheArr) {
-          if ((elements.getI() == i) && (elements.getJ() == j)) {
-            spotTaken = true;
-          }
-        }
         //-- if spot not taken and cell can be seen, then push to cacheArr
-        if ((!spotTaken) && isCellVisible(newCacheBounds)) {
+        if (isCellVisible(newCacheBounds)) {
           const newCache = new cache(i, j);
 
-          //
+          //Flyweight Pattern Variant: Since the token values are one the extrinsic properties of cells, it is stored
+          //in a map called gridMap rather than being stored in each individual cache object.
           if (typeof (gridMap.get(`${i}` + `${j}`)) === "number") {
             newCache.setPointValue(gridMap.get(`${i}` + `${j}`));
-            newCache.setInitialPointValue(gridMap.get(`${i}` + `${j}`));
+            newCache.changeSprite();
+          } else {
+            gridMap.set(`${i}` + `${j}`, newCache.ranValue(i, j));
             newCache.changeSprite();
           }
           cacheArr.push(newCache);
         }
       }
     }
-  }
-}
-
-class memento {
-  constructor() {
-  }
-
-  restore() {
   }
 }
 
@@ -475,30 +476,6 @@ function numberToSprite(value: number) {
 function isCellVisible(cell: LatLngBounds) {
   const currentView: LatLngBounds = map.getBounds();
   return currentView.overlaps(cell);
-}
-
-//gets player's latlng
-function _getPlayerLatLng() {
-  const markerLat = playerMarker.getLatLng().lat;
-  const markerLng = playerMarker.getLatLng().lng;
-  return leaflet.latLng(markerLat, markerLng);
-}
-
-//gets cell bounds that playerMarker is in
-function _getPlayerCell() {
-  const playerCellNW = leaflet.latLng(
-    playerMarker.getLatLng().lat + 0.5 * TILE_DEGREES,
-    playerMarker.getLatLng().lng - 0.5 * TILE_DEGREES,
-  );
-  const playerCellSE = leaflet.latLng(
-    playerMarker.getLatLng().lat - 0.5 * TILE_DEGREES,
-    playerMarker.getLatLng().lng + 0.5 * TILE_DEGREES,
-  );
-  const playerCellBounds: LatLngBounds = leaflet.latLngBounds(
-    playerCellNW,
-    playerCellSE,
-  );
-  return playerCellBounds;
 }
 
 //get cell bounds in center of screen
