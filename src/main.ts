@@ -28,6 +28,13 @@ const sixteenSprite =
 const placeHolderSprite =
   "https://webstockreview.net/images/square-clipart-transparent-6.png";
 
+const spritesByTokenValueLogarithm = [
+  oneSprite,
+  twoSprite,
+  fourSprite,
+  eightSprite,
+  sixteenSprite,
+];
 // ----Create basic UI elements----
 interface playerButton {
   element: HTMLButtonElement;
@@ -35,31 +42,31 @@ interface playerButton {
   message: string;
 }
 const playerButtonList: playerButton[] = [{
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "UP",
   message: "UP",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "LEFT",
   message: "LEFT",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "DOWN",
   message: "DOWN",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "RIGHT",
   message: "RIGHT",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "START",
   message: "START",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "BUTTON CONTROLS",
   message: "BUTTON CONTROLS",
 }, {
-  element: document.createElement("button") as HTMLButtonElement,
+  element: document.createElement("button"),
   id: "LOCATION CONTROLS",
   message: "LOCATION CONTROLS",
 }];
@@ -135,34 +142,17 @@ for (const button of playerButtonList) {
   controlPanelDiv.appendChild(button.element);
   button.element.addEventListener("click", () => {
     let newMarkerLocation: LatLng;
-    if (button.message === "UP") {
+    const movementMapping: Record<string, [number, number]> = {
+      "UP": [1, 0],
+      "LEFT": [0, -1],
+      "DOWN": [-1, 0],
+      "RIGHT": [0, 1],
+    };
+    if (button.message in movementMapping) {
+      const [dx, dy] = movementMapping[button.message];
       newMarkerLocation = leaflet.latLng(
-        playerMarker.getLatLng().lat + 1 * TILE_DEGREES,
-        playerMarker.getLatLng().lng,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-      map.setView(newMarkerLocation);
-    }
-    if (button.message === "LEFT") {
-      newMarkerLocation = leaflet.latLng(
-        playerMarker.getLatLng().lat,
-        playerMarker.getLatLng().lng - 1 * TILE_DEGREES,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-      map.setView(newMarkerLocation);
-    }
-    if (button.message === "DOWN") {
-      newMarkerLocation = leaflet.latLng(
-        playerMarker.getLatLng().lat - 1 * TILE_DEGREES,
-        playerMarker.getLatLng().lng,
-      );
-      playerMarker.setLatLng(newMarkerLocation);
-      map.setView(newMarkerLocation);
-    }
-    if (button.message === "RIGHT") {
-      newMarkerLocation = leaflet.latLng(
-        playerMarker.getLatLng().lat,
-        playerMarker.getLatLng().lng + 1 * TILE_DEGREES,
+        playerMarker.getLatLng().lat + dx * TILE_DEGREES,
+        playerMarker.getLatLng().lng + dy * TILE_DEGREES,
       );
       playerMarker.setLatLng(newMarkerLocation);
       map.setView(newMarkerLocation);
@@ -523,22 +513,13 @@ function spawnAll() {
 
 //take in number and outputs corresponding string to sprite
 function numberToSprite(value: number) {
+  const index = Math.log2(value);
   if (value == 0) {
     return zeroSprite;
-  } else if (value == 1) {
-    return oneSprite;
-  } else if (value == 2) {
-    return twoSprite;
-  } else if (value == 3) {
-    return threeSprite;
-  } else if (value == 4) {
-    return fourSprite;
-  } else if (value == 8) {
-    return eightSprite;
-  } else if (value == 16) {
-    return sixteenSprite;
-  } else {
+  } else if (index >= spritesByTokenValueLogarithm.length) {
     return placeHolderSprite;
+  } else {
+    return spritesByTokenValueLogarithm[index];
   }
 }
 //checks if Cell is visible to current map view
