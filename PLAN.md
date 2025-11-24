@@ -75,3 +75,16 @@ Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens
     - [X]create function that sets pointValue for cache object
     - [x] if cell has been modified, store most recent value in map
     - [x] if cell i and j value in map then extract from it and place new cell on top with that value
+
+## D3.d: Gameplay across real-world space and time
+
+Key technical challenges: Can your software remember game state even when the page is closed? Is the player character’s in-game movement controlled by the real-world geolocation of their device?
+Key gameplay challenge: Can the user test the game with multiple gameplay sessions, some involving real-world movement and some involving simulated movement?
+
+### D3.d STEPS
+
+- [X]Persistent Game State across page reloads
+- []able to move playerMarker with IRL location
+  - []switching controls from geolocation to buttons
+  - []Use Facade pattern
+- [X]Able to restart game completely

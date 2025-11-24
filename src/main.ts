@@ -50,6 +50,10 @@ const playerButtonList: playerButton[] = [{
   element: document.createElement("button") as HTMLButtonElement,
   id: "RIGHT",
   message: "RIGHT",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "START",
+  message: "START",
 }];
 
 const controlPanelDiv = document.createElement("div");
@@ -62,16 +66,15 @@ document.body.append(mapDiv);
 
 const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
-statusPanelDiv.innerHTML = `Current Token: None`;
+statusPanelDiv.innerHTML = `Current Token: ${
+  Number(localStorage.getItem(`playerPoints`))
+}`;
 document.body.append(statusPanelDiv);
-
-let playerPoints = 0;
 
 //----Cache Arrays----
 const cacheArr: cache[] = [];
 const newCacheArr: cache[] = [];
 //this is the caretaker for the mementos since it stores all of the token values for only the modified cells
-const gridMap = new Map();
 
 // ----Tunable gameplay parameters----
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -80,15 +83,17 @@ const CACHE_SPAWN_PROBABILITY = 0.1;
 const NEIGHBORHOOD_SIZE = 20;
 
 // ----Key locations----
-const _CLASSROOM_LATLNG = leaflet.latLng(
+const CLASSROOM_LATLNG = leaflet.latLng(
   36.9979,
   -122.0570,
 );
 const NULL_ISLAND = leaflet.latLng(0, 0);
 
+let irlLocation = leaflet.latLng(0, 0);
+
 // ----Map Setup (element with id "map" is defined in index.html)----
 const map = leaflet.map(mapDiv, {
-  center: _CLASSROOM_LATLNG,
+  center: irlLocation,
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -106,9 +111,10 @@ leaflet
 
 // Add Marker & Center it for each cell
 const playerMarker = leaflet.marker(leaflet.latLng(
-  _CLASSROOM_LATLNG.lat + 0.5 * TILE_DEGREES,
-  _CLASSROOM_LATLNG.lng + 0.5 * TILE_DEGREES,
+  CLASSROOM_LATLNG.lat + 0.5 * TILE_DEGREES,
+  CLASSROOM_LATLNG.lng + 0.5 * TILE_DEGREES,
 ));
+map.setView(playerMarker.getLatLng());
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 //----Moving Player with Buttons----
@@ -148,6 +154,9 @@ for (const button of playerButtonList) {
       );
       playerMarker.setLatLng(newMarkerLocation);
       map.setView(newMarkerLocation);
+    }
+    if (button.message === "START") {
+      startGame();
     }
   });
 }
@@ -191,7 +200,9 @@ class cache {
     this.rect.addTo(map);
     //Another example of the  Flyweight pattern in addition to the spawnAll() function since
     // the cache class is utilizing the token values which are stored within gridMap
-    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
+    this.cacheSprite = numberToSprite(
+      Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+    );
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
       this.spriteBounds,
@@ -230,7 +241,7 @@ class cache {
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
                 <div>There is a token here at "${i},${j}". It has value <span id="value">${
-      gridMap.get(`${this.i}` + `${this.j}`)
+      Number(localStorage.getItem(`${this.i}` + `${this.j}`))
     }</span>.</div>
                 <button id="take">take</button>
                 <button id="place">place</button>`;
@@ -261,16 +272,24 @@ class cache {
     if (
       (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
       (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
-      (playerPoints == 0)
+      (Number(localStorage.getItem(`playerPoints`)) == 0)
     ) {
-      playerPoints += gridMap.get(`${this.i}` + `${this.j}`);
-      gridMap.set(`${this.i}` + `${this.j}`, 0);
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
-        `${this.i}` + `${this.j}`,
-      ).toString();
-      statusPanelDiv.innerHTML = `Current Token: ${playerPoints}`;
+      localStorage.setItem(
+        `playerPoints`,
+        localStorage.getItem(`${this.i}` + `${this.j}`)!,
+      );
+      localStorage.setItem(`${this.i}` + `${this.j}`, String(0));
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
+        .getItem(
+          `${this.i}` + `${this.j}`,
+        )!;
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      }`;
       if (this.curSprite) this.curSprite.remove();
-      this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
+      this.cacheSprite = numberToSprite(
+        Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+      );
       this.curSprite = leaflet.imageOverlay(
         this.cacheSprite,
         this.spriteBounds,
@@ -278,47 +297,60 @@ class cache {
         map,
       ).bringToFront();
       //Checks for Win condition
-      if (playerPoints == 16) {
+      if (Number(localStorage.getItem(`playerPoints`)) == 16) {
         statusPanelDiv.innerHTML = `You win you have created an 16 Token!`;
       }
-    } else if (playerPoints != 0) {
-      statusPanelDiv.innerHTML =
-        `Current Token: ${playerPoints}<br> Already Holding Token`;
+    } else if (Number(localStorage.getItem(`playerPoints`)) != 0) {
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      }<br> Already Holding Token`;
     } else {
-      statusPanelDiv.innerHTML =
-        `Current Token: ${playerPoints}<br> Too far to access cache`;
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      }<br> Too far to access cache`;
     }
   }
 
   place(popup: HTMLDivElement) {
-    if (playerPoints == 0) {
-      statusPanelDiv.innerHTML =
-        `Current Token: ${playerPoints} <br> No Token Available to Place`;
-    } else if (gridMap.get(`${this.i}` + `${this.j}`) == 0) {
-      gridMap.set(
+    if (Number(localStorage.getItem(`playerPoints`)) == 0) {
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      } <br> No Token Available to Place`;
+    } else if (Number(localStorage.getItem(`${this.i}` + `${this.j}`)) == 0) {
+      localStorage.setItem(
         `${this.i}` + `${this.j}`,
-        gridMap.get(`${this.i}` + `${this.j}`) + playerPoints,
+        String(
+          Number(localStorage.getItem(`${this.i}` + `${this.j}`)) +
+            Number(localStorage.getItem(`playerPoints`)),
+        ),
       );
-      playerPoints -= playerPoints;
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
-        `${this.i}` + `${this.j}`,
-      ).toString();
+      localStorage.setItem(`playerPoints`, String(0));
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
+        .getItem(
+          `${this.i}` + `${this.j}`,
+        )!;
       statusPanelDiv.innerHTML = `Current Token: None`;
       if (this.curSprite) this.curSprite.remove();
 
-      this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
+      this.cacheSprite = numberToSprite(
+        Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+      );
       leaflet.imageOverlay(this.cacheSprite, this.spriteBounds).addTo(
         map,
       );
-    } else if (playerPoints == gridMap.get(`${this.i}` + `${this.j}`)) {
-      playerPoints -= playerPoints;
-      gridMap.set(
+    } else if (
+      Number(localStorage.getItem(`playerPoints`)) ==
+        Number(localStorage.getItem(`${this.i}` + `${this.j}`))
+    ) {
+      localStorage.setItem(`playerPoints`, String(0));
+      localStorage.setItem(
         `${this.i}` + `${this.j}`,
-        gridMap.get(`${this.i}` + `${this.j}`) * 2,
+        String(Number(localStorage.getItem(`${this.i}` + `${this.j}`)) * 2),
       );
-      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = gridMap.get(
-        `${this.i}` + `${this.j}`,
-      ).toString();
+      popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
+        .getItem(
+          `${this.i}` + `${this.j}`,
+        )!;
       statusPanelDiv.innerHTML =
         `Current Token: None <br> You Have Combined Similar Tokens!!!`;
       this.changeSprite();
@@ -327,7 +359,9 @@ class cache {
 
   changeSprite() {
     if (this.curSprite) this.curSprite.remove();
-    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
+    this.cacheSprite = numberToSprite(
+      Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+    );
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
       this.spriteBounds,
@@ -342,16 +376,19 @@ class cache {
     //token, then it's contents are stored within the map. Therefore, this object is the orginator since
     //it's state is being saved
     if (
-      gridMap.get(`${this.i}` + `${this.j}`) == this.initialPointValue
+      Number(Number(localStorage.getItem(`${this.i}` + `${this.j}`))) ==
+        this.initialPointValue
     ) {
-      gridMap.delete(`${this.i}` + `${this.j}`);
+      localStorage.removeItem(`${this.i}` + `${this.j}`);
     }
   }
   createCell() {
     this.rect = leaflet.rectangle(this.bounds);
     this.rect.addTo(map);
 
-    this.cacheSprite = numberToSprite(gridMap.get(`${this.i}` + `${this.j}`));
+    this.cacheSprite = numberToSprite(
+      Number(Number(localStorage.getItem(`${this.i}` + `${this.j}`))),
+    );
     this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
     this.curSprite.addTo(map);
   }
@@ -368,7 +405,7 @@ class cache {
   }
 
   setPointValue(val: number) {
-    gridMap.set(`${this.i}` + `${this.j}`, val);
+    localStorage.setItem(`${this.i}` + `${this.j}`, String(val));
   }
   setInitialPointValue(val: number) {
     this.initialPointValue = val;
@@ -438,11 +475,18 @@ function spawnAll() {
 
           //Flyweight Pattern Variant: Since the token values are one the extrinsic properties of cells, it is stored
           //in a map called gridMap rather than being stored in each individual cache object.
-          if (typeof (gridMap.get(`${i}` + `${j}`)) === "number") {
-            newCache.setPointValue(gridMap.get(`${i}` + `${j}`));
+          if (localStorage.getItem(`${i}` + `${j}`)) {
+            newCache.setPointValue(
+              Number(localStorage.getItem(`${i}` + `${j}`)),
+            );
             newCache.changeSprite();
           } else {
-            gridMap.set(`${i}` + `${j}`, newCache.ranValue(i, j));
+            localStorage.setItem(
+              `${i}` + `${j}`,
+              String(newCache.ranValue(i, j)),
+            );
+            //TODO CHANGE TYPES FROM STRING TO NUM THEN NUM TO STRING CUZ LOCAL STORAGR ONLY TAKES STRINGS
+
             newCache.changeSprite();
           }
           cacheArr.push(newCache);
@@ -494,8 +538,34 @@ function getCenterCell() {
   return centerBounds;
 }
 
-spawnAll();
+function success(loc: GeolocationPosition) {
+  irlLocation = leaflet.latLng(loc.coords.latitude, loc.coords.longitude);
+  map.setView(irlLocation);
+  playerMarker.setLatLng(irlLocation);
+  statusPanelDiv.innerHTML = `MOVINGGGG!`;
+}
+function error(loc: GeolocationPositionError) {
+  console.log("Error Code: " + loc.code);
+}
+const playerLocation = navigator.geolocation as Geolocation;
 
+function startGame() {
+  deleteAll();
+  localStorage.clear();
+  spawnAll();
+  /*playerMarker.setLatLng(leaflet.latLng(
+    CLASSROOM_LATLNG.lat + 0.5 * TILE_DEGREES,
+    CLASSROOM_LATLNG.lng + 0.5 * TILE_DEGREES,
+  ));
+  map.setView(playerMarker.getLatLng());*/
+  playerLocation.getCurrentPosition(success, error);
+  playerLocation.watchPosition(success);
+  localStorage.setItem(`playerPoints`, String(0));
+  statusPanelDiv.innerHTML = `Current Token: ${
+    Number(localStorage.getItem(`playerPoints`))
+  }`;
+}
+spawnAll();
 map.addEventListener("moveend", () => {
   deleteAll();
   spawnAll();
