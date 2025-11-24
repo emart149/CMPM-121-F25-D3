@@ -17,8 +17,6 @@ const zeroSprite =
 const oneSprite = "https://www.pngmart.com/files/14/1-Number-PNG-Picture.png";
 const twoSprite =
   "https://pngimg.com/uploads/number2/Number%202%20PNG%20images%20free%20download_PNG14925.png";
-const threeSprite =
-  "https://www.pngarts.com/files/3/Number-3-PNG-High-Quality-Image.png";
 const fourSprite =
   "https://th.bing.com/th/id/R.f68318b63bdee362f09bfee30cc8f903?rik=wy9sjYJEdNaNOQ&pid=ImgRaw&r=0";
 const eightSprite =
@@ -132,6 +130,8 @@ const playerMarker = leaflet.marker(leaflet.latLng(
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
+const interactionRadius = leaflet.circle(playerMarker.getLatLng(), 25);
+interactionRadius.addTo(map);
 let curWatch: number;
 const playerLocation = navigator.geolocation as Geolocation;
 curWatch = playerLocation.watchPosition(success, error);
@@ -155,6 +155,8 @@ for (const button of playerButtonList) {
         playerMarker.getLatLng().lng + dy * TILE_DEGREES,
       );
       playerMarker.setLatLng(newMarkerLocation);
+      interactionRadius.setLatLng(newMarkerLocation);
+
       map.setView(newMarkerLocation);
     }
     if (button.message === "START") {
@@ -549,6 +551,7 @@ function success(loc: GeolocationPosition) {
   irlLocation = leaflet.latLng(loc.coords.latitude, loc.coords.longitude);
   map.setView(irlLocation);
   playerMarker.setLatLng(irlLocation);
+  interactionRadius.setLatLng(irlLocation);
 }
 function error(loc: GeolocationPositionError) {
   console.log("Error Code: " + loc.code);
