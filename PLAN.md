@@ -86,5 +86,5 @@ Key gameplay challenge: Can the user test the game with multiple gameplay sessio
 - [X]Persistent Game State across page reloads
 - []able to move playerMarker with IRL location
   - []switching controls from geolocation to buttons
-  - []Use Facade pattern
+  - [X]Use Facade pattern
 - [X]Able to restart game completely

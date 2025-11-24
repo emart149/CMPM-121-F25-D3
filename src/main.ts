@@ -54,6 +54,14 @@ const playerButtonList: playerButton[] = [{
   element: document.createElement("button") as HTMLButtonElement,
   id: "START",
   message: "START",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "BUTTON CONTROLS",
+  message: "BUTTON CONTROLS",
+}, {
+  element: document.createElement("button") as HTMLButtonElement,
+  id: "LOCATION CONTROLS",
+  message: "LOCATION CONTROLS",
 }];
 
 const controlPanelDiv = document.createElement("div");
@@ -114,9 +122,13 @@ const playerMarker = leaflet.marker(leaflet.latLng(
   CLASSROOM_LATLNG.lat + 0.5 * TILE_DEGREES,
   CLASSROOM_LATLNG.lng + 0.5 * TILE_DEGREES,
 ));
-map.setView(playerMarker.getLatLng());
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
+
+let curWatch: number;
+const playerLocation = navigator.geolocation as Geolocation;
+curWatch = playerLocation.watchPosition(success, error);
+
 //----Moving Player with Buttons----
 for (const button of playerButtonList) {
   button.element.innerHTML = `${button.message}`;
@@ -157,6 +169,19 @@ for (const button of playerButtonList) {
     }
     if (button.message === "START") {
       startGame();
+    }
+    if (button.message === "BUTTON CONTROLS") {
+      playerLocation.clearWatch(curWatch);
+    }
+    if (button.message === "LOCATION CONTROLS") {
+      for (const elements of playerButtonList) {
+        if (
+          elements.message == "LEFT" || (elements.message == "RIGHT") ||
+          elements.message == "UP" || elements.message == "DOWN"
+        ) {
+          elements.element.remove();
+        }
+      }
     }
   });
 }
@@ -539,32 +564,30 @@ function getCenterCell() {
 }
 
 function success(loc: GeolocationPosition) {
+  console.log("success");
   irlLocation = leaflet.latLng(loc.coords.latitude, loc.coords.longitude);
   map.setView(irlLocation);
   playerMarker.setLatLng(irlLocation);
-  statusPanelDiv.innerHTML = `MOVINGGGG!`;
 }
 function error(loc: GeolocationPositionError) {
   console.log("Error Code: " + loc.code);
 }
-const playerLocation = navigator.geolocation as Geolocation;
 
 function startGame() {
   deleteAll();
   localStorage.clear();
   spawnAll();
-  /*playerMarker.setLatLng(leaflet.latLng(
-    CLASSROOM_LATLNG.lat + 0.5 * TILE_DEGREES,
-    CLASSROOM_LATLNG.lng + 0.5 * TILE_DEGREES,
-  ));
-  map.setView(playerMarker.getLatLng());*/
-  playerLocation.getCurrentPosition(success, error);
-  playerLocation.watchPosition(success);
+  playerLocation.clearWatch(curWatch);
+  curWatch = playerLocation.watchPosition(success);
+
   localStorage.setItem(`playerPoints`, String(0));
   statusPanelDiv.innerHTML = `Current Token: ${
     Number(localStorage.getItem(`playerPoints`))
   }`;
 }
+
+//emobodies facade pattern through this event listener since code is not dependent on controls and just calls these two functions
+//whenever the player moves whether it be through buttons or geolocation
 spawnAll();
 map.addEventListener("moveend", () => {
   deleteAll();
