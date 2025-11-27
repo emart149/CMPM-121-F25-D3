@@ -57,18 +57,20 @@ const playerButtonList: playerButton[] = [{
   message: "RIGHT",
 }, {
   element: document.createElement("button"),
-  id: "START",
-  message: "START",
+  id: "CLICK TO START",
+  message: "CLICK TO START",
 }, {
   element: document.createElement("button"),
-  id: "BUTTON CONTROLS",
-  message: "BUTTON CONTROLS",
-}, {
-  element: document.createElement("button"),
-  id: "LOCATION CONTROLS",
-  message: "LOCATION CONTROLS",
+  id: "SWITCH",
+  message: "SWITCH TO BUTTON CONTROLS",
 }];
 
+const movementMapping: Record<string, [number, number]> = {
+  "UP": [1, 0],
+  "LEFT": [0, -1],
+  "DOWN": [-1, 0],
+  "RIGHT": [0, 1],
+};
 const controlPanelDiv = document.createElement("div");
 controlPanelDiv.id = "controlPanel";
 document.body.append(controlPanelDiv);
@@ -106,7 +108,7 @@ let irlLocation = leaflet.latLng(0, 0);
 
 // ----Map Setup (element with id "map" is defined in index.html)----
 const map = leaflet.map(mapDiv, {
-  center: irlLocation,
+  center: NULL_ISLAND,
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -137,17 +139,63 @@ const playerLocation = navigator.geolocation as Geolocation;
 curWatch = playerLocation.watchPosition(success, error);
 
 //----Moving Player with Buttons----
+//Facade Variant: by implementing the MotionController interface with the buttonControls & geoControls
+//classes implement a strategy similar to the facade pattern since the controls change based on what type of
+// class playerController is assigned in lines 187 or 193.
+interface MotionController {
+  currentLocation: LatLng;
+}
+
+class buttonControls implements MotionController {
+  currentLocation = leaflet.latLng(playerMarker.getLatLng());
+  constructor() {
+    playerLocation.clearWatch(curWatch);
+    for (const button of playerButtonList) {
+      button.element.innerHTML = `${button.message}`;
+      controlPanelDiv.appendChild(button.element);
+    }
+  }
+}
+class geoControls implements MotionController {
+  currentLocation = leaflet.latLng(playerMarker.getLatLng());
+
+  constructor() {
+    playerLocation.clearWatch(curWatch);
+    curWatch = playerLocation.watchPosition(success);
+    for (const elements of playerButtonList) {
+      if (
+        elements.message == "LEFT" || (elements.message == "RIGHT") ||
+        elements.message == "UP" || elements.message == "DOWN"
+      ) {
+        elements.element.remove();
+      }
+    }
+  }
+}
+
 for (const button of playerButtonList) {
   button.element.innerHTML = `${button.message}`;
   controlPanelDiv.appendChild(button.element);
   button.element.addEventListener("click", () => {
     let newMarkerLocation: LatLng;
-    const movementMapping: Record<string, [number, number]> = {
-      "UP": [1, 0],
-      "LEFT": [0, -1],
-      "DOWN": [-1, 0],
-      "RIGHT": [0, 1],
-    };
+
+    if (button.message === "CLICK TO START") {
+      startGame();
+    }
+    if (button.message === "SWITCH TO LOCATION CONTROLS") {
+      if (playerController instanceof buttonControls) {
+        playerController = new geoControls();
+      }
+      button.message = "SWITCH TO BUTTON CONTROLS";
+      button.element.innerHTML = `${button.message}`;
+    } else if (button.message === "SWITCH TO BUTTON CONTROLS") {
+      if (playerController instanceof geoControls) {
+        playerController = new buttonControls();
+      }
+      button.message = "SWITCH TO LOCATION CONTROLS";
+      button.element.innerHTML = `${button.message}`;
+    }
+
     if (button.message in movementMapping) {
       const [dx, dy] = movementMapping[button.message];
       newMarkerLocation = leaflet.latLng(
@@ -159,25 +207,10 @@ for (const button of playerButtonList) {
 
       map.setView(newMarkerLocation);
     }
-    if (button.message === "START") {
-      startGame();
-    }
-    if (button.message === "BUTTON CONTROLS") {
-      playerLocation.clearWatch(curWatch);
-    }
-    if (button.message === "LOCATION CONTROLS") {
-      for (const elements of playerButtonList) {
-        if (
-          elements.message == "LEFT" || (elements.message == "RIGHT") ||
-          elements.message == "UP" || elements.message == "DOWN"
-        ) {
-          elements.element.remove();
-        }
-      }
-    }
   });
 }
 
+let playerController = new geoControls();
 // ----cache class----
 class cache {
   constructor(i: number, j: number) {
@@ -329,11 +362,23 @@ class cache {
   }
 
   place(popup: HTMLDivElement) {
+    //updates distance variable to player when place button is clicked
+    this.latDistToPlayer = Math.abs(
+      this.bounds.getCenter().lat - playerMarker.getLatLng().lat,
+    );
+    this.lngDistToPlayer = Math.abs(
+      this.bounds.getCenter().lng - playerMarker.getLatLng().lng,
+    );
+
     if (Number(localStorage.getItem(`playerPoints`)) == 0) {
       statusPanelDiv.innerHTML = `Current Token: ${
         Number(localStorage.getItem(`playerPoints`))
       } <br> No Token Available to Place`;
-    } else if (Number(localStorage.getItem(`${this.i}` + `${this.j}`)) == 0) {
+    } else if (
+      (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+      (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+      Number(localStorage.getItem(`${this.i}` + `${this.j}`)) == 0
+    ) {
       localStorage.setItem(
         `${this.i}` + `${this.j}`,
         String(
@@ -356,8 +401,10 @@ class cache {
         map,
       );
     } else if (
-      Number(localStorage.getItem(`playerPoints`)) ==
-        Number(localStorage.getItem(`${this.i}` + `${this.j}`))
+      (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+      (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+      (Number(localStorage.getItem(`playerPoints`)) ==
+        Number(localStorage.getItem(`${this.i}` + `${this.j}`)))
     ) {
       localStorage.setItem(`playerPoints`, String(0));
       localStorage.setItem(
@@ -371,6 +418,10 @@ class cache {
       statusPanelDiv.innerHTML =
         `Current Token: None <br> You Have Combined Similar Tokens!!!`;
       this.changeSprite();
+    } else {
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      }<br> Too far to access cache`;
     }
   }
 
@@ -547,7 +598,6 @@ function getCenterCell() {
 }
 
 function success(loc: GeolocationPosition) {
-  console.log("success");
   irlLocation = leaflet.latLng(loc.coords.latitude, loc.coords.longitude);
   map.setView(irlLocation);
   playerMarker.setLatLng(irlLocation);
@@ -570,8 +620,6 @@ function startGame() {
   }`;
 }
 
-//emobodies facade pattern through this event listener since code is not dependent on controls and just calls these two functions
-//whenever the player moves whether it be through buttons or geolocation
 spawnAll();
 map.addEventListener("moveend", () => {
   deleteAll();
