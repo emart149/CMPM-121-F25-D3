@@ -34,6 +34,10 @@ const spritesByTokenValueLogarithm = [
   sixteenSprite,
 ];
 // ----Create basic UI elements----
+interface point {
+  i: number;
+  j: number;
+}
 interface playerButton {
   element: HTMLButtonElement;
   id: string;
@@ -214,8 +218,9 @@ let playerController = new geoControls();
 // ----cache class----
 class cache {
   constructor(i: number, j: number) {
-    this.i = i;
-    this.j = j;
+    this.cacheLocation = { i: i, j: j };
+    this.cacheLocationStr = `${this.cacheLocation.i}` +
+      `${this.cacheLocation.j}`;
     this.latDistToPlayer = 0;
     this.lngDistToPlayer = 0;
     this.origin = NULL_ISLAND;
@@ -251,7 +256,7 @@ class cache {
     //Another example of the  Flyweight pattern in addition to the spawnAll() function since
     // the cache class is utilizing the token values which are stored within gridMap
     this.cacheSprite = numberToSprite(
-      Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+      Number(localStorage.getItem(this.cacheLocationStr)),
     );
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
@@ -264,6 +269,8 @@ class cache {
   }
 
   //Class properties
+  cacheLocation: point;
+  cacheLocationStr: string;
   latDistToPlayer: number;
   lngDistToPlayer: number;
   initialPointValue: number;
@@ -273,8 +280,6 @@ class cache {
   cacheSprite;
   curSprite;
   rect;
-  i: number;
-  j: number;
 
   //Class Methods
   ranValue(i: number, j: number) {
@@ -291,7 +296,7 @@ class cache {
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
                 <div>There is a token here at "${i},${j}". It has value <span id="value">${
-      Number(localStorage.getItem(`${this.i}` + `${this.j}`))
+      Number(localStorage.getItem(this.cacheLocationStr))
     }</span>.</div>
                 <button id="take">take</button>
                 <button id="place">place</button>`;
@@ -324,21 +329,20 @@ class cache {
       (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
       (Number(localStorage.getItem(`playerPoints`)) == 0)
     ) {
+      this.takeUpdateDisplay();
       localStorage.setItem(
         `playerPoints`,
-        localStorage.getItem(`${this.i}` + `${this.j}`)!,
+        localStorage.getItem(this.cacheLocationStr)!,
       );
-      localStorage.setItem(`${this.i}` + `${this.j}`, String(0));
+      localStorage.setItem(this.cacheLocationStr, String(0));
       popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
         .getItem(
-          `${this.i}` + `${this.j}`,
+          this.cacheLocationStr,
         )!;
-      statusPanelDiv.innerHTML = `Current Token: ${
-        Number(localStorage.getItem(`playerPoints`))
-      }`;
+
       if (this.curSprite) this.curSprite.remove();
       this.cacheSprite = numberToSprite(
-        Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+        Number(localStorage.getItem(this.cacheLocationStr)),
       );
       this.curSprite = leaflet.imageOverlay(
         this.cacheSprite,
@@ -346,11 +350,27 @@ class cache {
       ).addTo(
         map,
       ).bringToFront();
-      //Checks for Win condition
+    } else if (Number(localStorage.getItem(`playerPoints`)) != 0) {
+      this.takeUpdateDisplay();
+    } else {
+      this.takeUpdateDisplay();
+    }
+  }
+
+  takeUpdateDisplay() {
+    if (
+      (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+      (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+      (Number(localStorage.getItem(`playerPoints`)) == 0)
+    ) {
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(this.cacheLocationStr))
+      }`;
       if (Number(localStorage.getItem(`playerPoints`)) == 16) {
         statusPanelDiv.innerHTML = `You win you have created an 16 Token!`;
       }
     } else if (Number(localStorage.getItem(`playerPoints`)) != 0) {
+      console.log("INSTORGAE: " + Number(localStorage.getItem(`playerPoints`)));
       statusPanelDiv.innerHTML = `Current Token: ${
         Number(localStorage.getItem(`playerPoints`))
       }<br> Already Holding Token`;
@@ -371,31 +391,30 @@ class cache {
     );
 
     if (Number(localStorage.getItem(`playerPoints`)) == 0) {
-      statusPanelDiv.innerHTML = `Current Token: ${
-        Number(localStorage.getItem(`playerPoints`))
-      } <br> No Token Available to Place`;
+      this.placeUpdateDisplay();
     } else if (
       (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
       (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
-      Number(localStorage.getItem(`${this.i}` + `${this.j}`)) == 0
+      Number(localStorage.getItem(this.cacheLocationStr)) == 0
     ) {
+      this.placeUpdateDisplay();
+
       localStorage.setItem(
-        `${this.i}` + `${this.j}`,
+        this.cacheLocationStr,
         String(
-          Number(localStorage.getItem(`${this.i}` + `${this.j}`)) +
+          Number(localStorage.getItem(this.cacheLocationStr)) +
             Number(localStorage.getItem(`playerPoints`)),
         ),
       );
       localStorage.setItem(`playerPoints`, String(0));
       popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
         .getItem(
-          `${this.i}` + `${this.j}`,
+          this.cacheLocationStr,
         )!;
-      statusPanelDiv.innerHTML = `Current Token: None`;
       if (this.curSprite) this.curSprite.remove();
 
       this.cacheSprite = numberToSprite(
-        Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+        Number(localStorage.getItem(this.cacheLocationStr)),
       );
       leaflet.imageOverlay(this.cacheSprite, this.spriteBounds).addTo(
         map,
@@ -404,17 +423,40 @@ class cache {
       (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
       (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
       (Number(localStorage.getItem(`playerPoints`)) ==
-        Number(localStorage.getItem(`${this.i}` + `${this.j}`)))
+        Number(localStorage.getItem(this.cacheLocationStr)))
     ) {
+      this.placeUpdateDisplay();
+
       localStorage.setItem(`playerPoints`, String(0));
       localStorage.setItem(
-        `${this.i}` + `${this.j}`,
-        String(Number(localStorage.getItem(`${this.i}` + `${this.j}`)) * 2),
+        this.cacheLocationStr,
+        String(Number(localStorage.getItem(this.cacheLocationStr)) * 2),
       );
       popup.querySelector<HTMLSpanElement>("#value")!.innerHTML = localStorage
         .getItem(
-          `${this.i}` + `${this.j}`,
+          this.cacheLocationStr,
         )!;
+      this.changeSprite();
+    }
+  }
+
+  placeUpdateDisplay() {
+    if (Number(localStorage.getItem(`playerPoints`)) == 0) {
+      statusPanelDiv.innerHTML = `Current Token: ${
+        Number(localStorage.getItem(`playerPoints`))
+      } <br> No Token Available to Place`;
+    } else if (
+      (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+      (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+      Number(localStorage.getItem(this.cacheLocationStr)) == 0
+    ) {
+      statusPanelDiv.innerHTML = `Current Token: None`;
+    } else if (
+      (this.latDistToPlayer <= 3 * TILE_DEGREES) &&
+      (this.lngDistToPlayer <= 3 * TILE_DEGREES) &&
+      (Number(localStorage.getItem(`playerPoints`)) ==
+        Number(localStorage.getItem(this.cacheLocationStr)))
+    ) {
       statusPanelDiv.innerHTML =
         `Current Token: None <br> You Have Combined Similar Tokens!!!`;
       this.changeSprite();
@@ -428,7 +470,7 @@ class cache {
   changeSprite() {
     if (this.curSprite) this.curSprite.remove();
     this.cacheSprite = numberToSprite(
-      Number(localStorage.getItem(`${this.i}` + `${this.j}`)),
+      Number(localStorage.getItem(this.cacheLocationStr)),
     );
     this.curSprite = leaflet.imageOverlay(
       this.cacheSprite,
@@ -444,10 +486,10 @@ class cache {
     //token, then it's contents are stored within the map. Therefore, this object is the orginator since
     //it's state is being saved
     if (
-      Number(Number(localStorage.getItem(`${this.i}` + `${this.j}`))) ==
+      Number(Number(localStorage.getItem(this.cacheLocationStr))) ==
         this.initialPointValue
     ) {
-      localStorage.removeItem(`${this.i}` + `${this.j}`);
+      localStorage.removeItem(this.cacheLocationStr);
     }
   }
   createCell() {
@@ -455,17 +497,10 @@ class cache {
     this.rect.addTo(map);
 
     this.cacheSprite = numberToSprite(
-      Number(Number(localStorage.getItem(`${this.i}` + `${this.j}`))),
+      Number(Number(localStorage.getItem(this.cacheLocationStr))),
     );
     this.curSprite = leaflet.imageOverlay(this.cacheSprite, this.spriteBounds);
     this.curSprite.addTo(map);
-  }
-
-  getI() {
-    return this.i;
-  }
-  getJ() {
-    return this.j;
   }
 
   isSeen() {
@@ -473,7 +508,7 @@ class cache {
   }
 
   setPointValue(val: number) {
-    localStorage.setItem(`${this.i}` + `${this.j}`, String(val));
+    localStorage.setItem(this.cacheLocationStr, String(val));
   }
   setInitialPointValue(val: number) {
     this.initialPointValue = val;
